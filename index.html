@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quiz Matemático</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css">
+  <!-- Cambiamos la forma de cargar MathJax -->
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      },
+      startup: {
+        pageReady: () => {
+          return MathJax.startup.defaultPageReady().then(() => {
+            // Una vez que MathJax está listo, iniciamos la aplicación
+            initializeApp();
+          });
+        }
+      }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" defer></script>
+  <style>
+    :root {
+      --primary-color: #2563eb;
+      --secondary-color: #1e40af;
+      --background-color: #f8fafc;
+      --text-color: #1e293b;
+      --border-radius: 8px;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background-color: var(--background-color);
+      color: var(--text-color);
+      line-height: 1.5;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    .container {
+      background: white;
+      padding: 2rem;
+      border-radius: var(--border-radius);
+      box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    }
+
+    .loading {
+      text-align: center;
+      padding: 2rem;
+      font-size: 1.2rem;
+      color: var(--primary-color);
+    }
+
+    h1 {
+      color: var(--primary-color);
+      text-align: center;
+      font-size: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: #e2e8f0;
+      border-radius: 4px;
+      margin-bottom: 2rem;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--primary-color);
+      border-radius: 4px;
+      transition: width 0.3s ease;
+    }
+
+    .question-container {
+      background: white;
+      padding: 1.5rem;
+      border-radius: var(--border-radius);
+      margin-bottom: 1rem;
+      animation: fadeIn 0.5s ease;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 0.75rem;
+      margin-top: 1rem;
+      border: 2px solid #e2e8f0;
+      border-radius: var(--border-radius);
+      font-size: 1rem;
+      transition: border-color 0.3s ease;
+    }
+
+    input[type="text"]:focus {
+      outline: none;
+      border-color: var(--primary-color);
+    }
+
+    .button-group {
+      display: flex;
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+
+    button {
+      flex: 1;
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: var(--border-radius);
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background-color: var(--primary-color);
+      color: white;
+    }
+
+    button:disabled {
+      background-color: #e2e8f0;
+      cursor: not-allowed;
+    }
+
+    button:not(:disabled):hover {
+      transform: translateY(-1px);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .score-display {
+      text-align: center;
+      font-size: 2.5rem;
+      color: var(--primary-color);
+      margin: 2rem 0;
+      animation: fadeIn 0.5s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Quiz Matemático</h1>
+    <div id="loading" class="loading">Cargando preguntas...</div>
+    <div id="app" style="display: none;">
+      <div class="progress-bar">
+        <div class="progress-bar-fill" id="progress"></div>
+      </div>
+      <div id="question-container" class="question-container"></div>
+      <div class="button-group">
+        <button id="prev" disabled>Anterior</button>
+        <button id="next">Siguiente</button>
+      </div>
+      <div id="score-display" class="score-display" style="display: none;"></div>
+    </div>
+  </div>
+
+  <script>
+    const preguntas = [
+      // Aritmética básica
+      { pregunta: "$$\\text{1. Juan tiene 5 manzanas y compra 3 más. ¿Cuántas tiene ahora?}$$", respuesta: "8" },
+      { pregunta: "$$\\text{2. Si a un número le restas 7 y obtienes 10, ¿cuál es el número?}$$", respuesta: "17" },
+      { pregunta: "$$\\text{3. María compra 4 paquetes de galletas a 3 dólares cada uno. ¿Cuánto gasta en total?}$$", respuesta: "12" },
+      { pregunta: "$$\\text{4. Calcula } -3 + 7 - 2.$$", respuesta: "2" },
+      { pregunta: "$$\\text{5. Multiplica } 6 \\times (-2).$$", respuesta: "-12" },
+      { pregunta: "$$\\text{6. ¿Cuál es el resultado de } 20 / 5?$$", respuesta: "4" },
+      { pregunta: "$$\\text{7. Si Pedro tiene 25 chocolates y reparte 5, ¿cuántos le quedan?}$$", respuesta: "20" },
+      // Regla de tres
+      { pregunta: "$$\\text{8. Si 4 manzanas cuestan 8 dólares, ¿cuánto cuestan 10 manzanas?}$$", respuesta: "20" },
+      { pregunta: "$$\\text{9. Si 6 metros de tela cuestan 15 dólares, ¿cuánto cuestan 9 metros?}$$", respuesta: "22.5" },
+      { pregunta: "$$\\text{10. Una máquina produce 12 artículos en 3 horas. ¿Cuántos producirá en 8 horas?}$$", respuesta: "32" },
+      { pregunta: "$$\\text{11. Si 5 libros cuestan 25 dólares, ¿cuánto costarán 8 libros?}$$", respuesta: "40" },
+      { pregunta: "$$\\text{12. Si 7 kilogramos de fruta cuestan 21 dólares, ¿cuánto costarán 10 kilogramos?}$$", respuesta: "30" },
+      { pregunta: "$$\\text{13. Si 3 cajas pesan 18 kg, ¿cuánto pesarán 5 cajas?}$$", respuesta: "30" },
+      { pregunta: "$$\\text{14. Si 9 litros de pintura cubren 45 metros cuadrados, ¿cuántos metros cuadrados cubrirán 15 litros?}$$", respuesta: "75" },
+      { pregunta: "$$\\text{15. Si 4 metros de tela cuestan 20 dólares, ¿cuánto costarán 7 metros?}$$", respuesta: "35" },
+      { pregunta: "$$\\text{16. Si 2 kg de arroz cuestan 5 dólares, ¿cuánto costarán 6 kg?}$$", respuesta: "15" },
+      { pregunta: "$$\\text{17. Si un coche recorre 150 km con 10 litros de gasolina, ¿cuántos kilómetros recorrerá con 25 litros?}$$", respuesta: "375" },
+      { pregunta: "$$\\text{18. Si 8 trabajadores completan una tarea en 16 días, ¿cuánto tardarán 4 trabajadores?}$$", respuesta: "32" },
+      { pregunta: "$$\\text{19. Si 12 metros de alambre cuestan 36 dólares, ¿cuánto costarán 20 metros?}$$", respuesta: "60" },
+      { pregunta: "$$\\text{20. Si 5 litros de agua llenan 8 botellas, ¿cuántas botellas se llenarán con 15 litros?}$$", respuesta: "24" },
+      // Regla de tres simple e inversa
+      { pregunta: "$$\\text{21. Si 3 trabajadores completan una tarea en 9 días, ¿cuántos días tomarán 6 trabajadores?}$$", respuesta: "4.5" },
+      { pregunta: "\\begin{equation}\\text{22. Si 5 máquinas producen 100 artículos en 8 horas, ¿cuántas horas necesitarán 10 máquinas para producir la misma cantidad?}\\end{equation}", respuesta: "4" },
+      { pregunta: "$$\\text{23. Si 4 camiones transportan 20 toneladas de carga, ¿cuántas toneladas transportarán 6 camiones?}$$", respuesta: "30" },
+      { pregunta: "$$\\text{24. Si 10 litros de agua llenan 4 recipientes, ¿cuántos litros se necesitan para llenar 10 recipientes?}$$", respuesta: "25" },
+      { pregunta: "$$\\text{25. Si 15 metros de tela cuestan 45 dólares, ¿cuánto costarán 25 metros?}$$", respuesta: "75" },
+      { pregunta: "$$\\text{26. Si 5 personas construyen un muro en 15 días, ¿cuántos días tomarán 15 personas para construirlo?}$$", respuesta: "5" },
+      { pregunta: "$$\\text{27. Si 8 personas pueden pintar una casa en 12 días, ¿cuántos días necesitarán 16 personas?}$$", respuesta: "6" },
+      { pregunta: "$$\\text{28. Si 6 metros de cuerda cuestan 18 dólares, ¿cuánto costarán 10 metros?}$$", respuesta: "30" },
+      { pregunta: "$$\\text{29. Si un automóvil viaja a 60 km/h y tarda 3 horas, ¿cuánto tiempo tardará si viaja a 90 km/h?}$$", respuesta: "2" },
+      { pregunta: "$$\\text{30. Si 3 máquinas producen 150 artículos en 5 horas, ¿cuántos artículos producirán 5 máquinas en el mismo tiempo?}$$", respuesta: "250" },
+      // Porcentajes
+      { pregunta: "$$\\text{31. ¿Cuál es el 20\% de 150?}$$", respuesta: "30" },
+      { pregunta: "$$\\text{32. Un artículo cuesta 200 dólares y tiene un descuento del 15\%. ¿Cuánto pagarás por él?}$$", respuesta: "170" },
+      { pregunta: "$$\\text{33. Si un precio aumenta un 25\%, ¿cuál será el nuevo precio si el original era de 80 dólares?}$$", respuesta: "100" },
+      // Cambio de unidades - Longitud
+      { pregunta: "$$\\text{34. Convierte 5 kilómetros a metros.}$$", respuesta: "5000" },
+      { pregunta: "$$\\text{35. ¿Cuántos centímetros hay en 2.5 metros?}$$", respuesta: "250" },
+      { pregunta: "$$\\text{36. Convierte 12 pulgadas a centímetros (1 pulgada = 2.54 cm).}$$", respuesta: "30.48" },
+      // Cambio de unidades - Área
+      { pregunta: "$$\\text{37. Convierte 3 metros cuadrados a centímetros cuadrados.}$$", respuesta: "30000" },
+      { pregunta: "$$\\text{38. ¿Cuántos metros cuadrados hay en 5000 centímetros cuadrados?}$$", respuesta: "0.5" },
+      // Cambio de unidades - Volumen
+      { pregunta: "$$\\text{39. Convierte 2 litros a mililitros.}$$", respuesta: "2000" },
+      { pregunta: "$$\\text{40. ¿Cuántos litros hay en 3500 mililitros?}$$", respuesta: "3.5" },
+      // Aritmética con manejo de signos y paréntesis
+      { pregunta: "$$\\text{41. Calcula } (5 - 3) \\times (-2) + 4.$$", respuesta: "0" },
+      { pregunta: "$$\\text{42. Calcula } -(-6) + 2 \\times 3.$$", respuesta: "12" },
+      { pregunta: "$$\\text{43. Calcula } 8 - \\{ 3 + [2 - (-4)] \\}.$$", respuesta: "3" },
+      { pregunta: "$$\\text{44. Resuelve } -5 + (8 \\div (-2)) + 7.$$", respuesta: "0" },
+      { pregunta: "$$\\text{45. Calcula } 4 \\times (-3) + \\{ 6 - [2 \\times (-1)] \\}.$$", respuesta: "-4" },
+      // Ecuaciones lineales - Despejar una variable
+      { pregunta: "$$\\text{46. Despeja } x \\text{ en } 3x + 5 = 20.$$", respuesta: "5" },
+      { pregunta: "$$\\text{47. Despeja } y \\text{ en } 2y - 4 = 10.$$", respuesta: "7" },
+      { pregunta: "$$\\text{48. Despeja } z \\text{ en } 5z + 3 = 28.$$", respuesta: "5" },
+      { pregunta: "$$\\text{49. Despeja } x \\text{ en } 4x - 7 = 9.$$", respuesta: "4" },
+      { pregunta: "$$\\text{50. Despeja } a \\text{ en } 7a + 2 = 30.$$", respuesta: "4" },
+      { pregunta: "$$\\text{51. Despeja } b \\text{ en } 3b - 6 = 15.$$", respuesta: "7" },
+      { pregunta: "$$\\text{52. Despeja } c \\text{ en } 8c + 4 = 20.$$", respuesta: "2" },
+      { pregunta: "$$\\text{53. Despeja } d \\text{ en } 6d - 5 = 25.$$", respuesta: "5" },
+      { pregunta: "$$\\text{54. Despeja } e \\text{ en } 9e + 1 = 28.$$", respuesta: "3" },
+      { pregunta: "$$\\text{55. Despeja } f \\text{ en } 10f - 3 = 47.$$", respuesta: "5" },
+      // Factorización por agrupación
+      { pregunta: "$$\\text{56. Factoriza } 3x^2 + 6x + 2x + 4.$$", respuesta: "(3x + 2)(x + 2)" },
+      { pregunta: "$$\\text{57. Factoriza } x^3 - x^2 + 3x - 3.$$", respuesta: "(x^2 + 3)(x - 1)" },
+      { pregunta: "$$\\text{58. Factoriza } 4a^3 - 2a^2 + 6a - 3.$$", respuesta: "(2a^2 + 3)(2a - 1)" },
+      { pregunta: "$$\\text{59. Factoriza } x^2 + 5x + 2x + 10.$$", respuesta: "(x + 2)(x + 5)" },
+      { pregunta: "$$\\text{60. Factoriza } 2y^2 + 8y + 3y + 12.$$", respuesta: "(y + 4)(2y + 3)" },
+      { pregunta: "$$\\text{61. Factoriza } 6m^3 + 9m^2 + 2m + 3.$$", respuesta: "(3m^2 + 1)(2m + 3)" },
+      { pregunta: "$$\\text{62. Factoriza } 5x^2 - 10x + 3x - 6.$$", respuesta: "(5x + 3)(x - 2)" },
+      { pregunta: "$$\\text{63. Factoriza } 7a^2 - 14a + 2a - 4.$$", respuesta: "(7a + 2)(a - 2)" },
+      { pregunta: "$$\\text{64. Factoriza } 9p^2 + 3p + 6p + 2.$$", respuesta: "(3p + 2)(3p + 1)" },
+      { pregunta: "$$\\text{65. Factoriza } 8x^3 - 4x^2 + 6x - 3.$$", respuesta: "(4x^2 + 3)(2x - 1)" },
+      // Factorización de expresiones cuadráticas
+      { pregunta: "$$\\text{66. Factoriza } x^2 - 5x + 6.$$", respuesta: "(x - 2)(x - 3)" },
+      { pregunta: "$$\\text{67. Factoriza } x^2 + 7x + 12.$$", respuesta: "(x + 3)(x + 4)" },
+      { pregunta: "$$\\text{68. Factoriza } x^2 - 9x + 20.$$", respuesta: "(x - 4)(x - 5)" },
+      { pregunta: "$$\\text{69. Factoriza } 2x^2 - 8x + 6.$$", respuesta: "2(x - 1)(x - 3)" },
+      { pregunta: "$$\\text{70. Factoriza } 3x^2 + 12x + 9.$$", respuesta: "3(x + 1)(x + 3)" },
+      { pregunta: "$$\\text{71. Factoriza } x^2 - 4.$$", respuesta: "(x - 2)(x + 2)" },
+      { pregunta: "$$\\text{72. Factoriza } x^2 + 2x - 15.$$", respuesta: "(x + 5)(x - 3)" },
+      { pregunta: "$$\\text{73. Factoriza } 4x^2 - 12x + 9.$$", respuesta: "(2x - 3)^2" },
+      { pregunta: "$$\\text{74. Factoriza } x^2 - 6x + 8.$$", respuesta: "(x - 2)(x - 4)" },
+      { pregunta: "$$\\text{75. Factoriza } x^2 + 10x + 21.$$", respuesta: "(x + 3)(x + 7)" },
+      // Ecuaciones de la recta
+      { pregunta: "$$\\text{76. Encuentra la pendiente } m \\text{ y la intersección } b \\text{ de la recta } y = 3x + 5.$$", respuesta: "m = 3, b = 5" },
+      { pregunta: "$$\\text{77. Escribe la ecuación de la recta con pendiente } m = -2 \\text{ y que pasa por el punto } (0, 4).$$", respuesta: "y = -2x + 4" },
+      { pregunta: "$$\\text{78. Encuentra la ecuación de la recta en forma } y = mx + b \\text{ que pasa por los puntos } (1, 2) \\text{ y } (3, 6).$$", respuesta: "y = 2x" },
+      { pregunta: "$$\\text{79. Convierte la ecuación } 2x + 3y = 6 \\text{ a la forma } y = mx + b.$$", respuesta: "y = -\frac{2}{3}x + 2" },
+      { pregunta: "$$\\text{80. Encuentra la ecuación de la recta con pendiente } m = 4 \\text{ y que pasa por el punto } (1, -2).$$", respuesta: "y = 4x - 6" },
+      { pregunta: "$$\\text{81. Encuentra la ecuación de la recta que pasa por los puntos } (2, 3) \\text{ y } (4, 7) \\text{ en la forma } y - y_0 = m(x - x_0).$$", respuesta: "y - 3 = 2(x - 2)" },
+      { pregunta: "$$\\text{82. Escribe la ecuación } y - 1 = 3(x + 2) \\text{ en la forma } y = mx + b.$$", respuesta: "y = 3x + 7" },
+      { pregunta: "$$\\text{83. Encuentra la pendiente de la recta } 5x - 2y = 8.$$", respuesta: "m = \frac{5}{2}" },
+      { pregunta: "$$\\text{84. Encuentra la ecuación de la recta en forma } ax + by = c \\text{ con } m = -3 \\text{ y que pasa por el punto } (0, -5).$$", respuesta: "3x + y = -5" },
+      { pregunta: "$$\\text{85. Encuentra la pendiente y la intersección en } y = -4x + 7.$$", respuesta: "m = -4, b = 7" }
+      // ... resto de tus preguntas ...
+    ];
+
+    let currentQuestion = 0;
+    let answers = new Array(preguntas.length).fill('');
+
+    function initializeApp() {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      renderCurrentQuestion();
+      setupEventListeners();
+    }
+
+    function renderCurrentQuestion() {
+      const container = document.getElementById('question-container');
+      const question = preguntas[currentQuestion];
+      
+      container.innerHTML = `
+        <div class="question-text">${question.pregunta}</div>
+        <input 
+          type="text" 
+          id="current-answer" 
+          value="${answers[currentQuestion]}"
+          placeholder="Escribe tu respuesta aquí"
+          autocomplete="off">
+      `;
+
+      updateProgress();
+      MathJax.typeset();
+    }
+
+    function updateProgress() {
+      const progress = ((currentQuestion + 1) / preguntas.length) * 100;
+      document.getElementById('progress').style.width = `${progress}%`;
+    }
+
+    function setupEventListeners() {
+      const prevButton = document.getElementById('prev');
+      const nextButton = document.getElementById('next');
+
+      prevButton.addEventListener('click', () => {
+        saveCurrentAnswer();
+        currentQuestion--;
+        updateButtons();
+        renderCurrentQuestion();
+      });
+
+      nextButton.addEventListener('click', () => {
+        saveCurrentAnswer();
+        
+        if (currentQuestion === preguntas.length - 1) {
+          showResults();
+        } else {
+          currentQuestion++;
+          updateButtons();
+          renderCurrentQuestion();
+        }
+      });
+    }
+
+    function saveCurrentAnswer() {
+      const input = document.getElementById('current-answer');
+      answers[currentQuestion] = input.value.trim();
+    }
+
+    function updateButtons() {
+      const prevButton = document.getElementById('prev');
+      const nextButton = document.getElementById('next');
+      
+      prevButton.disabled = currentQuestion === 0;
+      nextButton.textContent = currentQuestion === preguntas.length - 1 ? 'Finalizar' : 'Siguiente';
+    }
+
+    function showResults() {
+      const correctAnswers = answers.filter((answer, index) => 
+        answer === preguntas[index].respuesta
+      ).length;
+
+      const score = ((correctAnswers / preguntas.length) * 4 + 1).toFixed(2);
+
+      document.getElementById('question-container').style.display = 'none';
+      document.getElementById('score-display').style.display = 'block';
+      document.getElementById('score-display').innerHTML = `
+        Tu calificación final es: <strong>${score}</strong>/5.0
+      `;
+      
+      const buttons = document.querySelector('.button-group');
+      buttons.innerHTML = `
+        <button onclick="location.reload()">Reiniciar Quiz</button>
+      `;
+    }
+  </script>
+</body>
+</html>
